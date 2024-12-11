@@ -122,3 +122,315 @@ close_but = tk.Button(root, text="Зарегистрироваться / нач�
 close_but.place(x=70, y=180)
 
 mainloop()
+
+
+2 вариант
+import tkinter as tk
+from tkinter import *
+import os
+
+light_color = "white"  # Цвет светлых клеток
+dark_color = "gray"    # Цвет темных клеток
+white_piece_color = "gray70"  # Цвет белых фигур
+black_piece_color = "black"  # Цвет черных фигур
+selected_color = "yellow"  # Цвет выделенной клетки
+queen_color = "gold"  # Цвет дамки
+
+# Функция для регистрации пользователя
+def regis():
+    global txt, txtl, txtp, login, password, lab
+
+    def dismiss(win_t):
+        win_t.grab_release()
+        win_t.destroy()
+
+    s_l = login.get()
+    s_p = password.get()
+    if len(s_l) == 0 or len(s_p) == 0:
+        win = Toplevel(root, relief=SUNKEN)
+        win.geometry("400x100+730+420")
+        win.title("Регистрация / Авторизация")
+        win.minsize(width=400, height=100)
+        win.maxsize(width=400, height=100)
+        win.protocol("WM_DELETE_WINDOW", lambda: dismiss(win))  # перехватываем нажатие на крестик
+        Label(win, text='Пуcтое поле "Логин" или "Пароль"', font=("Arial", 14, 'bold')).place(x=30, y=10)
+        close_button = tk.Button(win, text="Повторить ввод", command=lambda: dismiss(win))
+        close_button.place(x=150, y=50)
+        win.grab_set()  # захватываем пользовательский ввод
+    else:
+        f_reg = False
+        file = open("l_p.txt", "r+")  # открываем файл
+        a = file.read().split()  # читаем файл
+        for j in range(len(a)):  # ищем совпадение логин и пароль
+            if a[j] == s_l and a[j + 1] == s_p:
+                f_reg = True
+                break
+        if not f_reg:  # совпадения нет
+            file.seek(0, os.SEEK_END)
+            file.write(s_l + ' ' + s_p + ' ')  # записываем новые логин и пароль
+        file.close()
+        win_r = Toplevel(root, relief=SUNKEN)
+        win_r.geometry("400x100+730+420")
+        win_r.title("Регистрация / Авторизация")
+        win_r.minsize(width=400, height=100)
+        win_r.maxsize(width=400, height=100)
+        win_r.protocol("WM_DELETE_WINDOW", lambda: dismiss(win_r))  # перехватываем нажатие на крестик
+        Label(win_r, text="Уважаемый(-ая) " + s_l + ", вы успешно" + "\n зарегистрировались /авторизовались",
+              font=("Arial", 14, 'bold')).place(x=5, y=10)
+        close_button = tk.Button(win_r, text="Начать игру", command=lambda: [dismiss(win_r), start_game()])
+        close_button.place(x=150, y=65)
+        win_r.grab_set()  # захватываем пользовательский ввод
+        txt.place_forget()  # стираем виджеты регистрации
+        txtl.place_forget()
+        txtp.place_forget()
+        login.place_forget()
+        password.place_forget()
+        close_but.place_forget()
+
+# Глобальные переменные
+k = 100  # Размер клетки
+pole = [
+    [0, 0, 0, 0, 0, 0, 0, 0],  # Первая горизонталь (свободна)
+    [1, 1, 1, 1, 1, 1, 1, 1],  # Вторая горизонталь (белые шашки)
+    [1, 1, 1, 1, 1, 1, 1, 1],  # Третья горизонталь (белые шашки)
+    [0, 0, 0, 0, 0, 0, 0, 0],  # Четвертая горизонталь (свободна)
+    [0, 0, 0, 0, 0, 0, 0, 0],  # Пятая горизонталь (свободна)
+    [-1, -1, -1, -1, -1, -1, -1, -1],  # Шестая горизонталь (черные шашки)
+    [-1, -1, -1, -1, -1, -1, -1, -1],  # Седьмая горизонталь (черные шашки)
+    [0, 0, 0, 0, 0, 0, 0, 0]   # Восьмая горизонталь (свободна)
+]
+
+selected_piece = None  # Хранит выбранную шашку
+current_player = 1  # 1 - первый игрок (белые), -1 - второй игрок (черные)
+must_capture = False  # Флаг, указывающий, что игрок должен совершить взятие
+
+# Функция для получения индексов клетки по координатам мыши
+def get_cell(x, y):
+    return y // k, x // k
+
+# Функция для проверки возможности хода простой шашки
+def is_valid_move(start_row, start_col, end_row, end_col, player):
+    # Проверяем, что ход совершается на одну клетку в допустимом направлении
+    if abs(start_row - end_row) + abs(start_col - end_col) != 1:
+        return False
+
+    # Проверяем направление хода для простой шашки
+    if player == 1:
+        # Белые шашки могут двигаться вверх, влево или вправо
+        if end_row >= start_row:
+            return False
+    elif player == -1:
+        # Черные шашки могут двигаться вниз, влево или вправо
+        if end_row <= start_row:
+            return False
+
+    return True
+
+# Функция для проверки возможности хода дамки
+def is_valid_move_queen(start_row, start_col, end_row, end_col):
+    # Дамка может ходить на любое количество пустых полей в любом направлении
+    if start_row == end_row or start_col == end_col:
+        return False
+
+    # Проверяем, что все промежуточные клетки пустые
+    step_row = 1 if end_row > start_row else -1
+    step_col = 1 if end_col > start_col else -1
+    row, col = start_row + step_row, start_col + step_col
+    while row != end_row and col != end_col:
+        if pole[row][col] != 0:
+            return False
+        row += step_row
+        col += step_col
+
+    return True
+
+# Функция для проверки возможности взятия простой шашки
+def can_capture(start_row, start_col, end_row, end_col, player):
+    # Проверяем, что ход совершается через одну клетку по диагонали
+    if abs(start_row - end_row) != 2 or abs(start_col - end_col) != 2:
+        return False
+
+    # Определяем клетку между начальной и конечной
+    mid_row = (start_row + end_row) // 2
+    mid_col = (start_col + end_col) // 2
+
+    # Проверяем, что на этой клетке находится фигура противника
+    if pole[mid_row][mid_col] != -player:
+        return False
+
+    return True
+
+# Функция для проверки возможности взятия дамки
+def can_capture_queen(start_row, start_col, end_row, end_col, player):
+    # Проверяем, что ход совершается через одну или несколько клеток
+    if start_row == end_row or start_col == end_col:
+        return False
+
+    # Проверяем, что все промежуточные клетки пустые, кроме одной с фигурой противника
+    step_row = 1 if end_row > start_row else -1
+    step_col = 1 if end_col > start_col else -1
+    row, col = start_row + step_row, start_col + step_col
+    captured = False
+    while row != end_row and col != end_col:
+        if pole[row][col] != 0:
+            if pole[row][col] == -player and not captured:
+                captured = True
+            else:
+                return False
+        row += step_row
+        col += step_col
+
+    return captured
+
+# Функция для поиска лучшего взятия
+def find_best_capture(player):
+    best_capture = None
+    max_captured = 0
+
+    for row in range(8):
+        for col in range(8):
+            if pole[row][col] == player or pole[row][col] == 2 * player:
+                # Проверяем все возможные взятия для данной шашки
+                pass
+
+    return best_capture
+
+# Функция для обработки клика мыши
+def on_click(event):
+    global selected_piece, current_player, must_capture
+
+    # Получаем индексы клетки
+    row, col = get_cell(event.x, event.y)
+
+    # Проверяем, что клик был в пределах доски
+    if 0 <= row < 8 and 0 <= col < 8:
+        # Если клик левой кнопкой мыши (первый игрок)
+        if event.num == 1:
+            handle_move(row, col, 1)
+        # Если клик правой кнопкой мыши (второй игрок)
+        elif event.num == 3:
+            handle_move(row, col, -1)
+
+# Функция для обработки хода
+def handle_move(row, col, player):
+    global selected_piece, current_player, must_capture
+
+    # Если шашка еще не выбрана
+    if selected_piece is None:
+        # Проверяем, что выбрана своя шашка
+        if pole[row][col] == player or pole[row][col] == 2 * player:
+            selected_piece = (row, col)
+            # Выделяем клетку
+            canvas.itemconfig(cells[row][col], fill=selected_color)
+    else:
+        # Если шашка уже выбрана, проверяем, что выбрана пустая клетка
+        if pole[row][col] == 0:
+            start_row, start_col = selected_piece
+            # Проверяем, что ход допустим
+            if pole[start_row][start_col] == player:  # Простая шашка
+                if is_valid_move(start_row, start_col, row, col, player):
+                    # Проверяем, есть ли захват
+                    if can_capture(start_row, start_col, row, col, player):
+                        # Удаляем захваченную шашку
+                        mid_row = (start_row + row) // 2
+                        mid_col = (start_col + col) // 2
+                        pole[mid_row][mid_col] = 0
+                        must_capture = False  # Сбрасываем флаг захвата
+                    # Перемещаем шашку
+                    pole[row][col] = pole[start_row][start_col]
+                    pole[start_row][start_col] = 0
+                    # Проверяем, превращается ли шашка в дамку
+                    if (player == 1 and row == 0) or (player == -1 and row == 7):
+                        pole[row][col] = 2 * player  # Превращаем в дамку
+                    # Перерисовываем поле
+                    redraw_board()
+                    # Снимаем выделение
+                    selected_piece = None
+                    # Меняем игрока
+                    current_player = -current_player
+            elif pole[start_row][start_col] == 2 * player:  # Дамка
+                if is_valid_move_queen(start_row, start_col, row, col):
+                    # Проверяем, есть ли захват
+                    if can_capture_queen(start_row, start_col, row, col, player):
+                        # Удаляем захваченные шашки
+                        step_row = 1 if row > start_row else -1
+                        step_col = 1 if col > start_col else -1
+                        row_temp, col_temp = start_row + step_row, start_col + step_col
+                        while row_temp != row and col_temp != col:
+                            if pole[row_temp][col_temp] == -player:
+                                pole[row_temp][col_temp] = 0
+                            row_temp += step_row
+                            col_temp += step_col
+                        must_capture = False  # Сбрасываем флаг захвата
+                    # Перемещаем дамку
+                    pole[row][col] = pole[start_row][start_col]
+                    pole[start_row][start_col] = 0
+                    # Перерисовываем поле
+                    redraw_board()
+                    # Снимаем выделение
+                    selected_piece = None
+                    # Меняем игрока
+                    current_player = -current_player
+
+# Функция для перерисовки поля
+def redraw_board():
+    canvas.delete("all")
+    for i in range(8):
+        for j in range(8):
+            x0, y0 = j * k, i * k
+            x1, y1 = x0 + k, y0 + k
+            if (i + j) % 2 == 0:
+                color = light_color
+            else:
+                color = dark_color
+            cells[i][j] = canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="")
+            if pole[i][j] == 1:
+                canvas.create_oval(j * k + 10, i * k + 10, j * k + k - 10, i * k + k - 10, fill=white_piece_color, outline="")
+            elif pole[i][j] == -1:
+                canvas.create_oval(j * k + 10, i * k + 10, j * k + k - 10, i * k + k - 10, fill=black_piece_color, outline="")
+            elif pole[i][j] == 2:  # Белые дамки
+                canvas.create_oval(j * k + 10, i * k + 10, j * k + k - 10, i * k + k - 10, fill=queen_color, outline="")
+            elif pole[i][j] == -2:  # Черные дамки
+                canvas.create_oval(j * k + 10, i * k + 10, j * k + k - 10, i * k + k - 10, fill=queen_color, outline="")
+            root.state('zoomed')
+
+# Функция для начала игры
+def start_game():
+    global canvas, cells
+
+    # Создание игрового поля
+    canvas = Canvas(root, width=8 * k, height=8 * k, bg="white")
+    canvas.place(relx=0.5, rely=0.5, anchor=CENTER)  # Центрируем холст
+
+    # Массив для хранения идентификаторов клеток
+    cells = [[None for _ in range(8)] for _ in range(8)]
+
+    # Рисуем начальное поле
+    redraw_board()
+
+    # Привязываем обработчик кликов мыши
+    canvas.bind("<Button-1>", on_click)  # Левая кнопка мыши
+    canvas.bind("<Button-3>", on_click)  # Правая кнопка мыши
+
+# Создание главного окна
+root = Tk()
+root.title('Курсовая Работа: Турецкий шашки-поддавки')  # заголовок окна
+root.geometry("530x250+550+300")  # Устанавливаем начальный размер окна для регистрации
+
+# Регистрация и авторизация
+txt = Label(root, text="Для игры введите Ваш логин и пароль\nДля регистрации введите новый логин и пароль",
+            font=("Arial", 14, 'bold'))
+txt.place(x=40, y=20)
+txtl = Label(root, text='Логин', font=("Arial", 14, 'bold'))
+txtl.place(x=70, y=90)
+login = tk.Entry(root, width=10, bd=3)
+login.place(x=170, y=94)
+txtp = Label(root, text='Пароль', font=("Arial", 14, 'bold'))
+txtp.place(x=70, y=130)
+password = tk.Entry(root, width=10, bd=3)
+password.place(x=170, y=130)
+close_but = tk.Button(root, text="Зарегистрироваться / начать игру", command=regis)
+close_but.place(x=70, y=180)
+
+# Запуск приложения
+mainloop()
