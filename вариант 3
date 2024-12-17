@@ -294,3 +294,6 @@ redraw_board()
 canvas.bind("<Button-1>", on_click)
 canvas.bind("<Button-3>", on_click)
 root.mainloop()
+
+
+#новая регистрация, ходят вперед,но не сторону и назад не ходят
