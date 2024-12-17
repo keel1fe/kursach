@@ -1,3 +1,4 @@
+#ходят вперед, но не ходят в сторону
 import tkinter as tk
 from tkinter import *
 import os
