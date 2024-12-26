@@ -305,9 +305,9 @@ class GameBoard:
     
     def determine_winner(self):
         if self.black_pieces <= 1:
-            return "Победили Белые"
-        elif self.white_pieces <= 1:
             return "Победили Черные"
+        elif self.white_pieces <= 1:
+            return "Победили Белые"
         elif self.white_pieces == 1 and self.black_pieces == 1:
             return "Ничья"
         return None
